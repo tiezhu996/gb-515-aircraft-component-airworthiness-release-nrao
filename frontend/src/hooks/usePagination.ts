@@ -1,0 +1,8 @@
+
+import { useMemo, useState } from 'react';
+export function usePagination(total: number, initialPageSize = 20) {
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(initialPageSize);
+  const pages = useMemo(() => Math.max(1, Math.ceil(total / pageSize)), [total, pageSize]);
+  return { page, pageSize, pages, setPage, setPageSize };
+}
