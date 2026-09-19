@@ -12,6 +12,7 @@ import (
 type CertificateRecordRepository interface {
 	List(context.Context, dto.PageQuery) (Page[model.CertificateRecord], error)
 	Get(context.Context, uint) (model.CertificateRecord, error)
+	FindLatestByRelatedCode(context.Context, string) (model.CertificateRecord, error)
 	CreateVersion(context.Context, *model.CertificateRecord, string, string) error
 	UpdateVersion(context.Context, uint, uint, *model.CertificateRecord, string, string, string, string, string) error
 	Delete(context.Context, uint) error
@@ -56,6 +57,9 @@ func (r *certificateRecordRepository) Get(ctx context.Context, id uint) (model.C
 		return db.Order("version")
 	}).First(&item, id).Error
 	return item, err
+}
+func (r *certificateRecordRepository) FindLatestByRelatedCode(ctx context.Context, relatedCode string) (model.CertificateRecord, error) {
+	return r.store.FindLatestByRelatedCode(ctx, relatedCode)
 }
 
 func (r *certificateRecordRepository) CreateVersion(ctx context.Context, item *model.CertificateRecord, actor, requestID string) error {

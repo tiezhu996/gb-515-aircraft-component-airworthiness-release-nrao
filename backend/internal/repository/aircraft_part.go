@@ -12,6 +12,7 @@ import (
 type AircraftPartRepository interface {
 	List(context.Context, dto.PageQuery) (Page[model.AircraftPart], error)
 	Get(context.Context, uint) (model.AircraftPart, error)
+	FindByCode(context.Context, string) (model.AircraftPart, error)
 	Create(context.Context, *model.AircraftPart) error
 	Update(context.Context, uint, uint, *model.AircraftPart) error
 	Delete(context.Context, uint) error
@@ -31,6 +32,9 @@ func (r *aircraftPartRepository) List(ctx context.Context, q dto.PageQuery) (Pag
 }
 func (r *aircraftPartRepository) Get(ctx context.Context, id uint) (model.AircraftPart, error) {
 	return r.store.Get(ctx, id)
+}
+func (r *aircraftPartRepository) FindByCode(ctx context.Context, code string) (model.AircraftPart, error) {
+	return r.store.FindByCode(ctx, code)
 }
 func (r *aircraftPartRepository) Create(ctx context.Context, item *model.AircraftPart) error {
 	return r.store.Create(ctx, item)

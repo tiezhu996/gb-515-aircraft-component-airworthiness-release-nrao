@@ -1,5 +1,39 @@
 # 验证记录
 
+## 2026-09-19 放行前证据闸门
+
+本次变更为放行授权增加放行前证据闸门，以下命令均实际执行成功：
+
+```bash
+cd backend
+gofmt -l .          # 无输出
+go test ./...
+go test -race ./internal/service/
+go vet ./...
+go build ./...
+
+cd ../frontend
+npm run typecheck
+npm run build
+
+cd ..
+sh -n scripts/validate.sh
+```
+
+- 新增服务层测试并全部通过（含 `-race`）：
+  - `TestReleaseEvidenceGateBlocksSubmission`：无证据时 3 项阻断；部件非 hold、检查未 passed、证书非 valid、证书未到生效时间各 1 项阻断；阻断期间状态保持 `draft` v1 且无新增版本/审计；证据补齐后提交成功。
+  - `TestReleaseApprovalRevalidatesEvidence`：复核等待期间部件解除暂停或证书吊销都会阻断批准，状态保持 `review`；证据恢复后批准成功。
+  - `TestConcurrentApprovalLeavesSingleSuccess`：4 路并发批准仅 1 次成功，最终 `approved` v3、3 个版本、3 条审计。
+  - 既有 `TestAuthorizationVersionChainEnforcesDualControl` 在补齐证据链后保持通过，权限与双人复核语义不变。
+- SQLite 开发模式实机验证（`DATABASE_DRIVER=sqlite REDIS_ADDR=''` 启动真实服务）：
+  - 缺少证据提交复核返回 HTTP 422 `evidence_gate_blocked`，`meta.blockers` 列出"部件不存在 / 缺少检查任务 / 缺少证书记录"3 项，记录保持 `draft` v1。
+  - 补齐部件 hold、检查 passed、证书 valid 后提交复核成功；复核等待期间将证书置为 `expired` 后批准返回 422 且仅 1 项阻断，记录保持 `review` v2。
+  - 发布同部件编码的最新有效证书后批准成功（`approved` v3）；重复批准返回 422。
+  - 4 路并发批准：1 次 HTTP 200、3 次 HTTP 422，最终 `approved` v3、3 个版本。
+- `scripts/validate.sh` 已同步扩展：先构建部件/检查/证书证据链，再验证缺证据阻断、等待期证据变化阻断、最新证书放行与重复批准拒绝。本环境无 Docker，Compose 全流程未在此执行，脚本通过 `sh -n` 语法检查。
+
+## 2026-08-22 基线验证
+
 验证日期：2026-08-22（Asia/Shanghai）
 
 ## 代码质量

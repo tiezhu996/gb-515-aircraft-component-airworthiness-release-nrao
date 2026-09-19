@@ -54,6 +54,22 @@ func (s *Store[T]) Get(ctx context.Context, id uint) (T, error) {
 	return item, err
 }
 
+// FindByCode locates one aggregate by its immutable business code.
+func (s *Store[T]) FindByCode(ctx context.Context, code string) (T, error) {
+	var item T
+	err := s.db.WithContext(ctx).Where("code = ?", code).First(&item).Error
+	return item, err
+}
+
+// FindLatestByRelatedCode returns the most recently changed aggregate linked
+// to the given related code so evidence gates always read the freshest record.
+func (s *Store[T]) FindLatestByRelatedCode(ctx context.Context, relatedCode string) (T, error) {
+	var item T
+	err := s.db.WithContext(ctx).Where("related_code = ?", relatedCode).
+		Order("updated_at DESC, id DESC").First(&item).Error
+	return item, err
+}
+
 func (s *Store[T]) Create(ctx context.Context, item *T) error {
 	return s.db.WithContext(ctx).Create(item).Error
 }

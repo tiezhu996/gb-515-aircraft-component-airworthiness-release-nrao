@@ -35,7 +35,7 @@ func New(cfg config.Config, db *gorm.DB, redisClient *redis.Client, logger *slog
 	aircraftPartService := service.NewAircraftPartService(aircraftPartRepository, securityService)
 	inspectionTaskService := service.NewInspectionTaskService(inspectionTaskRepository, securityService)
 	certificateRecordService := service.NewCertificateRecordService(certificateRecordRepository, securityService)
-	releaseAuthorizationService := service.NewReleaseAuthorizationService(releaseAuthorizationRepository, securityService)
+	releaseAuthorizationService := service.NewReleaseAuthorizationService(releaseAuthorizationRepository, securityService, aircraftPartRepository, inspectionTaskRepository, certificateRecordRepository)
 	aircraftPartHandler := handler.NewAircraftPartHandler(aircraftPartService)
 	inspectionTaskHandler := handler.NewInspectionTaskHandler(inspectionTaskService)
 	certificateRecordHandler := handler.NewCertificateRecordHandler(certificateRecordService)
