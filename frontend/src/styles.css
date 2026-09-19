@@ -41,6 +41,7 @@ td small { display: block; color: #7d8d97; margin-top: 4px; }
 .muted, .empty { color: #82919a; }.empty { text-align: center; padding: 40px; }
 .loading { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(255,255,255,.72); color: #176c55; font-weight: 700; }
 .alert { padding: 12px; margin-bottom: 12px; color: #922b34; background: #fde8ea; border-left: 4px solid #c84855; }
+.blocker-list { margin: 8px 0 0; padding-left: 20px; display: grid; gap: 4px; }
 .modal-backdrop { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; background: rgba(10,25,35,.52); }
 .modal { width: min(440px, calc(100vw - 32px)); background: white; padding: 22px; box-shadow: 0 18px 60px rgba(0,0,0,.25); }
 .modal h2 { margin-top: 0; }.modal footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; }

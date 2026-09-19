@@ -7,10 +7,11 @@ import (
 )
 
 type Envelope struct {
-	Data    any    `json:"data,omitempty"`
-	Error   string `json:"error,omitempty"`
-	Message string `json:"message,omitempty"`
-	Meta    any    `json:"meta,omitempty"`
+	Data     any      `json:"data,omitempty"`
+	Error    string   `json:"error,omitempty"`
+	Message  string   `json:"message,omitempty"`
+	Meta     any      `json:"meta,omitempty"`
+	Blockers []string `json:"blockers,omitempty"`
 }
 
 func OK(c *gin.Context, data any) {
@@ -27,6 +28,12 @@ func NoContent(c *gin.Context) {
 
 func Fail(c *gin.Context, status int, code, message string) {
 	c.AbortWithStatusJSON(status, Envelope{Error: code, Message: message})
+}
+
+// FailWithBlockers rejects a request and carries the specific evidence
+// blockers so the workbench can list every unmet condition.
+func FailWithBlockers(c *gin.Context, status int, code, message string, blockers []string) {
+	c.AbortWithStatusJSON(status, Envelope{Error: code, Message: message, Blockers: blockers})
 }
 
 func Page(c *gin.Context, data any, page, pageSize int, total int64) {

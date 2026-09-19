@@ -12,6 +12,7 @@ import (
 type InspectionTaskRepository interface {
 	List(context.Context, dto.PageQuery) (Page[model.InspectionTask], error)
 	Get(context.Context, uint) (model.InspectionTask, error)
+	LatestByRelatedCode(context.Context, string) (model.InspectionTask, error)
 	Create(context.Context, *model.InspectionTask) error
 	Update(context.Context, uint, uint, *model.InspectionTask) error
 	Delete(context.Context, uint) error
@@ -31,6 +32,9 @@ func (r *inspectionTaskRepository) List(ctx context.Context, q dto.PageQuery) (P
 }
 func (r *inspectionTaskRepository) Get(ctx context.Context, id uint) (model.InspectionTask, error) {
 	return r.store.Get(ctx, id)
+}
+func (r *inspectionTaskRepository) LatestByRelatedCode(ctx context.Context, relatedCode string) (model.InspectionTask, error) {
+	return r.store.LatestByRelatedCode(ctx, relatedCode)
 }
 func (r *inspectionTaskRepository) Create(ctx context.Context, item *model.InspectionTask) error {
 	return r.store.Create(ctx, item)

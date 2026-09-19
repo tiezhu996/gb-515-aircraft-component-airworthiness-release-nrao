@@ -21,6 +21,17 @@ export function clearSession(): void {
 	window.dispatchEvent(new Event('auth-session-changed'));
 }
 
+export class ApiError extends Error {
+  code: string;
+  blockers: string[];
+  constructor(message: string, code = '', blockers: string[] = []) {
+    super(message);
+    this.name = 'ApiError';
+    this.code = code;
+    this.blockers = blockers;
+  }
+}
+
 export async function request<T>(path: string, init: RequestInit = {}): Promise<ApiEnvelope<T>> {
   const headers = new Headers(init.headers);
   headers.set('Accept', 'application/json');
@@ -31,6 +42,9 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
 	if (response.status === 204) return { data: undefined as T };
 	const payload = await response.json().catch(() => ({ error: 'invalid_response', message: '服务返回了无法解析的响应' }));
 	if (response.status === 401 && path !== '/auth/login') clearSession();
-	if (!response.ok) throw new Error(payload.message || payload.error || `HTTP ${response.status}`);
+	if (!response.ok) {
+    throw new ApiError(payload.message || payload.error || `HTTP ${response.status}`, payload.error || '',
+      Array.isArray(payload.blockers) ? payload.blockers : []);
+  }
   return payload as ApiEnvelope<T>;
 }

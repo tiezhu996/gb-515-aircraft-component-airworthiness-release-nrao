@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -58,13 +59,14 @@ func TestCertificateVersionChainRequiresIndependentReviewer(t *testing.T) {
 
 func TestAuthorizationVersionChainEnforcesDualControl(t *testing.T) {
 	db := newVersionTestDB(t)
-	service := NewReleaseAuthorizationService(repository.NewReleaseAuthorizationRepository(db), nil)
+	service := newReleaseAuthorizationService(db)
 	ctx := context.Background()
 
 	created, err := service.Create(ctx, authorizationInput("AUTH-TEST-01"), "operator", "auth-create-1")
 	if err != nil {
 		t.Fatalf("create authorization: %v", err)
 	}
+	seedReleaseEvidence(t, db, created.RelatedCode)
 	review, err := service.Transition(ctx, created.ID, dto.TransitionRequest{
 		Status: "review", ExpectedVersion: created.Version, Reason: "inspection evidence complete",
 	}, "operator", model.RoleOperator, "auth-submit-2")
@@ -102,18 +104,63 @@ func TestAuthorizationVersionChainEnforcesDualControl(t *testing.T) {
 
 func newVersionTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
-	dsn := "file:" + t.Name() + "?mode=memory&cache=shared"
+	dsn := fmt.Sprintf("file:%s-%d?mode=memory&cache=shared", t.Name(), time.Now().UnixNano())
 	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
 	}
 	if err := db.AutoMigrate(
-		&model.AuditLog{}, &model.CertificateRecord{}, &model.CertificateRecordRevision{},
+		&model.AuditLog{}, &model.AircraftPart{}, &model.InspectionTask{},
+		&model.CertificateRecord{}, &model.CertificateRecordRevision{},
 		&model.ReleaseAuthorization{}, &model.ReleaseAuthorizationRevision{},
 	); err != nil {
 		t.Fatalf("migrate sqlite: %v", err)
 	}
 	return db
+}
+
+// newReleaseAuthorizationService wires the authorization aggregate with the
+// real evidence gate so tests exercise the same pre-release checks as the
+// production router.
+func newReleaseAuthorizationService(db *gorm.DB) ReleaseAuthorizationService {
+	gate := NewEvidenceGate(
+		repository.NewAircraftPartRepository(db),
+		repository.NewInspectionTaskRepository(db),
+		repository.NewCertificateRecordRepository(db),
+	)
+	return NewReleaseAuthorizationService(repository.NewReleaseAuthorizationRepository(db), gate, nil)
+}
+
+// seedReleaseEvidence creates the linked part (hold), inspection (passed) and
+// certificate (valid and effective) that the evidence gate requires.
+func seedReleaseEvidence(t *testing.T, db *gorm.DB, relatedCode string) {
+	t.Helper()
+	now := time.Now().UTC()
+	part := model.AircraftPart{
+		BaseModel: model.BaseModel{Code: relatedCode, Name: "Gate part", Status: "hold", Version: 1, CreatedAt: now, UpdatedAt: now},
+		Facility:  "Hangar 2", Owner: "Airworthiness team", Category: "engine", RiskLevel: "high",
+		EffectiveAt: now.Add(-time.Hour), Evidence: "part quarantined for release review", RelatedCode: relatedCode,
+	}
+	inspection := model.InspectionTask{
+		BaseModel: model.BaseModel{Code: "INSP-" + relatedCode, Name: "Gate inspection", Status: "passed", Version: 1, CreatedAt: now, UpdatedAt: now},
+		Facility:  "Hangar 2", Owner: "Inspection crew", Category: "engine", RiskLevel: "medium",
+		EffectiveAt: now.Add(-time.Hour), Evidence: "inspection report signed", RelatedCode: relatedCode,
+	}
+	certificate := model.CertificateRecord{
+		BaseModel: model.BaseModel{Code: "CERT-" + relatedCode, Name: "Gate certificate", Status: "valid", Version: 1, CreatedAt: now, UpdatedAt: now},
+		Facility:  "Hangar 2", Owner: "Certificate desk", Category: "engine", RiskLevel: "medium",
+		EffectiveAt: now.Add(-time.Hour), Evidence: "certificate published", RelatedCode: relatedCode,
+		PreparedBy: "operator", VerifiedBy: "reviewer",
+	}
+	if err := db.Create(&part).Error; err != nil {
+		t.Fatalf("seed part: %v", err)
+	}
+	if err := db.Create(&inspection).Error; err != nil {
+		t.Fatalf("seed inspection: %v", err)
+	}
+	if err := db.Create(&certificate).Error; err != nil {
+		t.Fatalf("seed certificate: %v", err)
+	}
 }
 
 func certificateInput(code string) dto.CreateCertificateRecord {

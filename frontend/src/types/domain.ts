@@ -38,7 +38,7 @@ export interface VersionRevision {
 }
 
 export interface PageMeta { page: number; pageSize: number; total: number }
-export interface ApiEnvelope<T> { data: T; error?: string; message?: string; meta?: PageMeta }
+export interface ApiEnvelope<T> { data: T; error?: string; message?: string; meta?: PageMeta; blockers?: string[] }
 export interface UserSession { token: string; username: string; displayName: string; role: string; expiresIn: number }
 export interface AuditLog {
   id: number; requestId: string; actor: string; action: string; entityType: string;

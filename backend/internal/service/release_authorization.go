@@ -24,11 +24,12 @@ type ReleaseAuthorizationService interface {
 
 type releaseAuthorizationService struct {
 	repository repository.ReleaseAuthorizationRepository
+	gate       EvidenceGate
 	security   SecurityService
 }
 
-func NewReleaseAuthorizationService(repo repository.ReleaseAuthorizationRepository, security SecurityService) ReleaseAuthorizationService {
-	return &releaseAuthorizationService{repository: repo, security: security}
+func NewReleaseAuthorizationService(repo repository.ReleaseAuthorizationRepository, gate EvidenceGate, security SecurityService) ReleaseAuthorizationService {
+	return &releaseAuthorizationService{repository: repo, gate: gate, security: security}
 }
 
 func (s *releaseAuthorizationService) List(ctx context.Context, query dto.PageQuery) (repository.Page[model.ReleaseAuthorization], error) {
@@ -103,6 +104,9 @@ func (s *releaseAuthorizationService) Transition(ctx context.Context, id uint, i
 		return model.ReleaseAuthorization{}, ErrForbidden
 	}
 	if target == "review" {
+		if err := s.ensureReleaseEvidence(ctx, current.RelatedCode); err != nil {
+			return model.ReleaseAuthorization{}, err
+		}
 		current.SubmittedBy = actor
 		current.ReviewedBy = ""
 		current.ReviewReason = ""
@@ -113,6 +117,14 @@ func (s *releaseAuthorizationService) Transition(ctx context.Context, id uint, i
 		}
 		if current.SubmittedBy != "" && actor == current.SubmittedBy {
 			return model.ReleaseAuthorization{}, ErrSeparationOfDuty
+		}
+		if target == "approved" {
+			// Re-read the latest evidence at approval time: anything that
+			// changed while the authorization waited in review must block
+			// the release again.
+			if err := s.ensureReleaseEvidence(ctx, current.RelatedCode); err != nil {
+				return model.ReleaseAuthorization{}, err
+			}
 		}
 		current.ReviewedBy = actor
 		current.ReviewReason = strings.TrimSpace(input.Reason)
@@ -143,6 +155,19 @@ func (s *releaseAuthorizationService) Delete(ctx context.Context, id uint, actor
 
 func (s *releaseAuthorizationService) StatusCounts(ctx context.Context) (map[string]int64, error) {
 	return s.repository.CountByStatus(ctx)
+}
+
+// ensureReleaseEvidence blocks the transition while any linked evidence
+// condition is unmet, leaving the authorization in its current status.
+func (s *releaseAuthorizationService) ensureReleaseEvidence(ctx context.Context, relatedCode string) error {
+	blockers, err := s.gate.Blockers(ctx, relatedCode)
+	if err != nil {
+		return fmt.Errorf("check 放行前证据: %w", err)
+	}
+	if len(blockers) > 0 {
+		return &EvidenceGateError{Blockers: blockers}
+	}
+	return nil
 }
 
 func validateReleaseAuthorizationBusinessFields(code, name, facility, owner string) error {
